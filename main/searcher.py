@@ -4,7 +4,7 @@ import concurrent.futures
 from pathlib import Path
 from urllib.parse import urljoin
 from typing import List, Tuple, Optional, Callable
-
+from llm_searcher import LLMDatasheetSearcher
 import requests
 from bs4 import BeautifulSoup
 
@@ -18,6 +18,7 @@ from utils import (
 )
 
 
+
 class DatasheetDownloader:
     def __init__(self, out_dir: Path, log_callback=None):
         self.out_dir = out_dir
@@ -25,7 +26,7 @@ class DatasheetDownloader:
         self.log = log_callback or (lambda msg: None)
         self.session = requests.Session()
         self.session.headers.update(config.HEADERS)
-
+        self.llm_searcher = LLMDatasheetSearcher(log_callback=self.log)
     # --------------------------------------------------------
     # 1. Поиск через DuckDuckGo
     # --------------------------------------------------------
@@ -98,6 +99,7 @@ class DatasheetDownloader:
     # --------------------------------------------------------
     # 4. Параллельный поиск по источникам
     # --------------------------------------------------------
+    
     def search_sources_parallel(self, part_name: str) -> Optional[str]:
         """
         Параллельно запускает поиск по всем источникам.
@@ -108,6 +110,8 @@ class DatasheetDownloader:
             ('Alldatasheet', lambda: self.search_alldatasheet(part_name)),
             ('Datasheetspdf', lambda: self.search_datasheetspdf(part_name))
         ]
+        if self.llm_searcher.is_available():
+            sources.append(('DeepSeek', lambda: self._search_llm_wrapper(part_name)))
 
         def search_source(name: str, func: Callable[[], List[str]]) -> Optional[str]:
             try:
@@ -187,7 +191,7 @@ class DatasheetDownloader:
 
         trusted_domains = [
             "alldatasheet.com", "datasheetspdf.com", "pdf.datasheetcatalog.com",
-            "datasheetarchive.com", "datasheet39.com", "datasheet4u.com"
+            "datasheetarchive.com", "datasheet39.com", "datasheet4u.com",""
         ]
         for domain in trusted_domains:
             if domain in url:
@@ -291,6 +295,18 @@ class DatasheetDownloader:
             except Exception as e:
                 self.log(f"  ошибка обработки {url}: {e}")
                 continue
-
+        if config.USE_LLM_AS_FALLBACK and self.llm_searcher_available():
+            self.log(' Применение LLM для следующего наименования:',part_name)
+            llm_url = self.llm_searcher.search_pdf_url(part_name)
+            if llm_url:
+                out_path = self.out_dir / f"{sanitize_filename(part_name)}.pdf"
+                if self.download_file(llm_url,out_path):
+                    self.log(f"OK (LLM):{out_path.name}")
+                    return True
         self.log("  не найдено подходящего PDF")
         return False
+    
+    def _search_llm_wrapper(self, part_name: str) -> List[str]:
+        """Обёртка для LLM-поиска, возвращает список из одного URL или пустой список."""
+        url = self.llm_searcher.search_pdf_url(part_name)
+        return [url] if url else []

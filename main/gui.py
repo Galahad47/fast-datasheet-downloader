@@ -230,9 +230,9 @@ class App(tk.Tk):
         self.downloader = DatasheetDownloader(out_dir, log_callback=self.log)
         parts_to_download = list(sorted(self.selected))
 
-        self.status_var.set(f"Скачивание: {len(parts_to_download)} позиций (параллельно до {config.MAX_WORKERS_TOTAL})")
+        self.status_var.set(f"Скачивание: {len(parts_to_download)} позиций")
         self.log("=== Старт параллельной загрузки ===")
-
+        self.log(f"DeepSeek API: {'доступен' if self.downloader.llm_searcher.is_available() else 'недоступен'}")
         def process_part(part: str) -> bool:
             try:
                 return self.downloader.find_and_download_datasheet(part)
