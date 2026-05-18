@@ -295,8 +295,8 @@ class DatasheetDownloader:
             except Exception as e:
                 self.log(f"  ошибка обработки {url}: {e}")
                 continue
-        if config.USE_LLM_AS_FALLBACK and self.llm_searcher_available():
-            self.log(' Применение LLM для следующего наименования:',part_name)
+        if config.USE_LLM_AS_FALLBACK and self.llm_searcher.is_available():
+            self.log(f'Применение LLM для следующего наименования: {part_name}')
             llm_url = self.llm_searcher.search_pdf_url(part_name)
             if llm_url:
                 out_path = self.out_dir / f"{sanitize_filename(part_name)}.pdf"
