@@ -4,7 +4,6 @@ import concurrent.futures
 from pathlib import Path
 from urllib.parse import urljoin
 from typing import List, Tuple, Optional, Callable, Dict
-from llm_searcher import LLMInfoSearcher
 import requests
 from bs4 import BeautifulSoup
 
@@ -28,7 +27,6 @@ class InfoSearcher:
         self.session = requests.Session()
         self.session.headers.update(config.HEADERS)
         self.info_type = info_type if info_type in config.INFO_TYPES else "datasheet"
-        self.llm_searcher = LLMInfoSearcher(log_callback=self.log, info_type=self.info_type)
         
         # Получаем настройки для текущего типа информации
         self.type_config = config.INFO_TYPES.get(self.info_type, {})
@@ -130,9 +128,6 @@ class InfoSearcher:
                 ('Alldatasheet', lambda: self.search_alldatasheet(query)),
                 ('Datasheetspdf', lambda: self.search_datasheetspdf(query))
             ])
-        
-        if self.llm_searcher.is_available():
-            sources.append(('LLM', lambda: self._search_llm_wrapper(query)))
 
         def search_source(name: str, func: Callable[[], List[str]]) -> Optional[str]:
             try:
@@ -347,26 +342,14 @@ class InfoSearcher:
             except Exception as e:
                 self.log(f"  ошибка обработки {url}: {e}")
                 continue
-        
-        # 3. LLM fallback
-        if config.USE_LLM_AS_FALLBACK and self.llm_searcher.is_available():
-            self.log(f'Применение LLM для: {query}')
-            llm_url = self.llm_searcher.search_url(query)
-            if llm_url:
-                filename = sanitize_filename(query)
-                ext = self.file_extension if self.file_extension else ".html"
-                out_path = self.out_dir / f"{filename}{ext}"
-                if self.download_file(llm_url, out_path):
-                    self.log(f"OK (LLM):{out_path.name}")
-                    return True
-                    
+                
         self.log("  не найдено подходящего ресурса")
         return False
     
     def _search_llm_wrapper(self, query: str) -> List[str]:
         """Обёртка для LLM-поиска, возвращает список из одного URL или пустой список."""
-        url = self.llm_searcher.search_url(query)
-        return [url] if url else []
+        # LLM отключён, всегда возвращаем пустой список
+        return []
 
 
 # Алиас для обратной совместимости
