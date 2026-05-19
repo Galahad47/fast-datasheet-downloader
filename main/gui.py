@@ -6,7 +6,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-from searcher import DatasheetDownloader
+from searcher import DatasheetDownloader, InfoSearcher
 import config
 
 
