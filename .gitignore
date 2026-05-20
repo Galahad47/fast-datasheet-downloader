@@ -1,1 +1,1 @@
-Nothing should be ignored in this case, as the modified files (`main/config.py` and `main/searcher.py`) are both source code files without any build artifacts, dependencies, or temporary files present in the changes.
+Nothing should be ignored since the changes only include Python source files (.py) which are not build artifacts, dependencies, or temporary files.
