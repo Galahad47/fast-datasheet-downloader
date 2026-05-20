@@ -7,6 +7,7 @@ import os
 SEARCH_URL_DDG = "https://html.duckduckgo.com/html/"
 SEARCH_URL_ALLDATASHEET = "https://www.alldatasheet.com/view.jsp"
 # SEARCH_URL_DATASHEETSPDF = "https://datasheetspdf.com/search"  # Домен недоступен
+SEARCH_URL_GOOGLE_SCHOLAR = "https://scholar.google.com/scholar"  # Новый источник
 
 # Заголовки HTTP для маскировки под браузер
 HEADERS = {
@@ -31,13 +32,20 @@ RETRY_BACKOFF_FACTOR = 1.5
 MAX_WORKERS_PER_SOURCE = 3   # одновременных запросов к одному источнику
 MAX_WORKERS_TOTAL = 5        # одновременно обрабатываемых компонентов
 
+# Дополнительные поисковые системы для обхода блокировок
+FALLBACK_SEARCH_ENGINES = [
+    "duckduckgo",
+    "google_scholar",
+    "bing",  # Можно добавить в будущем
+]
+
 # =============================================================================
-# LLM Configuration (DeepSeek API)
+# LLM Configuration (DeepSeek API) - ОТКЛЮЧЕНО
 # =============================================================================
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')  # Рекомендуется через переменную окружения
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEEPSEEK_MODEL = "deepseek-chat"
-USE_LLM_AS_FALLBACK = True
+USE_LLM_AS_FALLBACK = False  # Отключено из-за проблем с блокировками
 LLM_MAX_WORKERS = 2
 LLM_REQUEST_TIMEOUT = 45  # Увеличен для сложных запросов
 

@@ -96,6 +96,44 @@ class InfoSearcher:
         
         return results
 
+    def search_google_scholar(self, query: str, max_results: int = 10) -> List[Tuple[str, str]]:
+        """Возвращает список (title, url) из Google Scholar."""
+        search_url = "https://scholar.google.com/scholar"
+        
+        # Заголовки для Google Scholar
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Referer": "https://scholar.google.com/",
+        }
+        
+        try:
+            params = {"q": query, "hl": "en"}
+            r = request_with_retry(self.session, "GET", search_url, params=params, timeout=20, headers=headers)
+            if r.status_code != 200 or not r.text.strip():
+                self.log(f"  Google Scholar вернул статус {r.status_code}")
+                return []
+        except Exception as e:
+            self.log(f"  Google Scholar ошибка: {e}")
+            return []
+
+        soup = BeautifulSoup(r.text, "html.parser")
+        results = []
+        
+        # Ищем результаты в формате Google Scholar
+        for div in soup.find_all("div", class_="gs_r gs_or gs_scl"):
+            link_tag = div.find("h3", class_="gs_rt").find("a") if div.find("h3", class_="gs_rt") else None
+            if link_tag and link_tag.get("href"):
+                title = link_tag.get_text(" ", strip=True)
+                href = link_tag["href"]
+                if title and href:
+                    results.append((title, href))
+            if len(results) >= max_results:
+                break
+        
+        return results
+
     # --------------------------------------------------------
     # 2. Прямой поиск на alldatasheet.com (только для datasheet)
     # --------------------------------------------------------
@@ -166,6 +204,7 @@ class InfoSearcher:
         """
         sources = [
             ('DDG', lambda: self._search_ddg_wrapper(query)),
+            ('Google Scholar', lambda: self._search_scholar_wrapper(query)),
         ]
         
         # Добавляем специализированные источники только для datasheet
@@ -207,6 +246,11 @@ class InfoSearcher:
         results = self.search_duckduckgo(search_query, max_results=5)
         return [unwrap_ddg_redirect(url) for _, url in results]
 
+    def _search_scholar_wrapper(self, query: str) -> List[str]:
+        search_query = self.search_pattern.format(query=query)
+        results = self.search_google_scholar(search_query, max_results=5)
+        return [url for _, url in results]
+
     def _check_content_type(self, url: str) -> bool:
         """Проверяет соответствие типа контента ожидаемому."""
         if self.file_extension == ".pdf":
@@ -232,6 +276,12 @@ class InfoSearcher:
         for title, raw_url in ddg_results:
             url = unwrap_ddg_redirect(raw_url)
             score = self._score_url(url, title, query)
+            candidates.append((score, url))
+
+        # Google Scholar
+        scholar_results = self.search_google_scholar(search_query, max_results=8)
+        for title, url in scholar_results:
+            score = self._score_url(url, title, query) + 3
             candidates.append((score, url))
 
         # Alldatasheet (только datasheet)
