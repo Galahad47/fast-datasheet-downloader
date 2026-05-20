@@ -49,10 +49,38 @@ def request_with_retry(
     retries = 0
     last_exc = None
     timeout = kwargs.pop('timeout', REQUEST_TIMEOUT)
+    
+    # Для DuckDuckGo используем специальные заголовки
+    if "duckduckgo.com" in url:
+        ddg_headers = {
+            "Referer": "https://duckduckgo.com/",
+            "Origin": "https://duckduckgo.com",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        existing_headers = session.headers.copy()
+        existing_headers.update(ddg_headers)
+        session.headers.update(ddg_headers)
+    
     while retries <= MAX_RETRIES:
         try:
             resp = session.request(method, url, timeout=timeout, **kwargs)
+            
+            # Обработка 403 для DuckDuckGo
+            if resp.status_code == 403 and "duckduckgo.com" in url:
+                # Пробуем без kl-параметра если он есть
+                if isinstance(kwargs.get('data'), dict) and 'kl' in kwargs['data']:
+                    data_copy = kwargs['data'].copy()
+                    del data_copy['kl']
+                    kwargs['data'] = data_copy
+                    time.sleep(1)
+                    continue
+                    
             resp.raise_for_status()
+            
+            # Восстанавливаем заголовки если меняли для DDG
+            if "duckduckgo.com" in url:
+                session.headers.update(existing_headers)
+                
             return resp
         except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as e:
             last_exc = e
@@ -60,5 +88,15 @@ def request_with_retry(
             if retries <= MAX_RETRIES:
                 time.sleep(RETRY_BACKOFF_FACTOR ** retries)
                 continue
+            
+            # Восстанавливаем заголовки если меняли для DDG
+            if "duckduckgo.com" in url:
+                session.headers.update(existing_headers)
+                
             raise last_exc
+    
+    # Восстанавливаем заголовки если меняли для DDG
+    if "duckduckgo.com" in url:
+        session.headers.update(existing_headers)
+        
     raise last_exc or Exception("Unknown error")
