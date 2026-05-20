@@ -134,6 +134,56 @@ class InfoSearcher:
         
         return results
 
+    def search_bing(self, query: str, max_results: int = 10) -> List[Tuple[str, str]]:
+        """Возвращает список (title, url) из Bing."""
+        search_url = config.SEARCH_URL_BING
+        
+        # Заголовки для Bing
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Referer": "https://www.bing.com/",
+        }
+        
+        try:
+            params = {"q": query}
+            r = request_with_retry(self.session, "GET", search_url, params=params, timeout=25, headers=headers)
+            if r.status_code != 200 or not r.text.strip():
+                self.log(f"  Bing вернул статус {r.status_code}")
+                return []
+        except Exception as e:
+            self.log(f"  Bing ошибка: {e}")
+            return []
+
+        soup = BeautifulSoup(r.text, "html.parser")
+        results = []
+        
+        # Ищем результаты в формате Bing
+        for li in soup.find_all("li", class_="b_algo"):
+            link_tag = li.find("h2").find("a") if li.find("h2") else None
+            if link_tag and link_tag.get("href"):
+                title = link_tag.get_text(" ", strip=True)
+                href = link_tag["href"]
+                if title and href and not href.startswith("javascript:"):
+                    results.append((title, href))
+            if len(results) >= max_results:
+                break
+        
+        # Резервный вариант - ищем все ссылки с классом b_title
+        if not results:
+            for a in soup.find_all("a", href=True):
+                if "b_title" in str(a.parent) or ("http" in a.get("href", "")):
+                    href = a.get("href", "")
+                    if href.startswith("http") and "bing.com" not in href:
+                        title = a.get_text(" ", strip=True)
+                        if title and len(title) > 5:
+                            results.append((title, href))
+                if len(results) >= max_results:
+                    break
+        
+        return results
+
     # --------------------------------------------------------
     # 2. Прямой поиск на alldatasheet.com (только для datasheet)
     # --------------------------------------------------------
@@ -205,6 +255,7 @@ class InfoSearcher:
         sources = [
             ('DDG', lambda: self._search_ddg_wrapper(query)),
             ('Google Scholar', lambda: self._search_scholar_wrapper(query)),
+            ('Bing', lambda: self._search_bing_wrapper(query)),
         ]
         
         # Добавляем специализированные источники только для datasheet
@@ -251,6 +302,11 @@ class InfoSearcher:
         results = self.search_google_scholar(search_query, max_results=5)
         return [url for _, url in results]
 
+    def _search_bing_wrapper(self, query: str) -> List[str]:
+        search_query = self.search_pattern.format(query=query)
+        results = self.search_bing(search_query, max_results=5)
+        return [url for _, url in results]
+
     def _check_content_type(self, url: str) -> bool:
         """Проверяет соответствие типа контента ожидаемому."""
         if self.file_extension == ".pdf":
@@ -284,6 +340,12 @@ class InfoSearcher:
             score = self._score_url(url, title, query) + 3
             candidates.append((score, url))
 
+        # Bing
+        bing_results = self.search_bing(search_query, max_results=8)
+        for title, url in bing_results:
+            score = self._score_url(url, title, query) + 2
+            candidates.append((score, url))
+
         # Alldatasheet (только datasheet)
         if self.info_type == "datasheet":
             for url in self.search_alldatasheet(query):
@@ -295,6 +357,16 @@ class InfoSearcher:
         #     for url in self.search_datasheetspdf(query):
         #         score = self._score_url(url, "", query) + 8
         #         candidates.append((score, url))
+
+        # Direct search on manufacturer websites (only for datasheet)
+        if self.info_type == "datasheet":
+            for domain in self.trusted_domains:
+                if '.' in domain and len(domain) > 5:  # Пропускаем короткие домены
+                    mfr_query = f"site:{domain} {query} datasheet pdf"
+                    mfr_results = self.search_bing(mfr_query, max_results=3)
+                    for title, url in mfr_results:
+                        score = self._score_url(url, title, query) + 15  # Высокий приоритет для официальных источников
+                        candidates.append((score, url))
 
         # Удаление дубликатов
         seen = set()
