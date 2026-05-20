@@ -126,7 +126,7 @@ class InfoSearcher:
         if self.info_type == "datasheet":
             sources.extend([
                 ('Alldatasheet', lambda: self.search_alldatasheet(query)),
-                ('Datasheetspdf', lambda: self.search_datasheetspdf(query))
+                # ('Datasheetspdf', lambda: self.search_datasheetspdf(query))  # Домен недоступен
             ])
 
         def search_source(name: str, func: Callable[[], List[str]]) -> Optional[str]:
@@ -193,11 +193,11 @@ class InfoSearcher:
                 score = self._score_url(url, "", query) + 10
                 candidates.append((score, url))
 
-        # Datasheetspdf (только datasheet)
-        if self.info_type == "datasheet":
-            for url in self.search_datasheetspdf(query):
-                score = self._score_url(url, "", query) + 8
-                candidates.append((score, url))
+        # Datasheetspdf (только datasheet) - отключен, домен недоступен
+        # if self.info_type == "datasheet":
+        #     for url in self.search_datasheetspdf(query):
+        #         score = self._score_url(url, "", query) + 8
+        #         candidates.append((score, url))
 
         # Удаление дубликатов
         seen = set()
