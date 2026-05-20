@@ -6,7 +6,7 @@ import os
 # =============================================================================
 SEARCH_URL_DDG = "https://html.duckduckgo.com/html/"
 SEARCH_URL_ALLDATASHEET = "https://www.alldatasheet.com/view.jsp"
-SEARCH_URL_DATASHEETSPDF = "https://datasheetspdf.com/search"
+# SEARCH_URL_DATASHEETSPDF = "https://datasheetspdf.com/search"  # Домен недоступен
 
 # Заголовки HTTP для маскировки под браузер
 HEADERS = {
@@ -118,10 +118,10 @@ DEFAULT_SEARCH_PATTERNS = {
 # Домены, которым доверяем для каждого типа
 TRUSTED_DOMAINS = {
     "datasheet": [
-        "alldatasheet.com", "datasheetspdf.com", "pdf.datasheetcatalog.com",
+        "alldatasheet.com", "pdf.datasheetcatalog.com",
         "datasheetarchive.com", "datasheet39.com", "datasheet4u.com",
         "ti.com", "analog.com", "st.com", "infineon.com", "nxp.com",
-        "microchip.com", "renesas.com", "onsemi.com", " Vishay.com"
+        "microchip.com", "renesas.com", "onsemi.com", "vishay.com"
     ],
     "application_note": [
         "ti.com", "analog.com", "st.com", "infineon.com", "nxp.com",
