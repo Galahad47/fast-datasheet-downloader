@@ -261,9 +261,8 @@ class InfoSearcher:
         # Добавляем специализированные источники только для datasheet
         if self.info_type == "datasheet":
             sources.extend([
-                # Alldatasheet временно отключен из-за 403 ошибок
-                # ('Alldatasheet', lambda: self.search_alldatasheet(query)),
-                # ('Datasheetspdf', lambda: self.search_datasheetspdf(query))  # Домен недоступен
+                ('Alldatasheet', lambda: self.search_alldatasheet(query)),
+                ('Datasheetspdf', lambda: self.search_datasheetspdf(query))
             ])
 
         def search_source(name: str, func: Callable[[], List[str]]) -> Optional[str]:
@@ -352,21 +351,11 @@ class InfoSearcher:
                 score = self._score_url(url, "", query) + 10
                 candidates.append((score, url))
 
-        # Datasheetspdf (только datasheet) - отключен, домен недоступен
-        # if self.info_type == "datasheet":
-        #     for url in self.search_datasheetspdf(query):
-        #         score = self._score_url(url, "", query) + 8
-        #         candidates.append((score, url))
-
-        # Direct search on manufacturer websites (only for datasheet)
+        # Datasheetspdf (только datasheet)
         if self.info_type == "datasheet":
-            for domain in self.trusted_domains:
-                if '.' in domain and len(domain) > 5:  # Пропускаем короткие домены
-                    mfr_query = f"site:{domain} {query} datasheet pdf"
-                    mfr_results = self.search_bing(mfr_query, max_results=3)
-                    for title, url in mfr_results:
-                        score = self._score_url(url, title, query) + 15  # Высокий приоритет для официальных источников
-                        candidates.append((score, url))
+            for url in self.search_datasheetspdf(query):
+                score = self._score_url(url, "", query) + 8
+                candidates.append((score, url))
 
         # Удаление дубликатов
         seen = set()

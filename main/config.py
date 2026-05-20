@@ -6,9 +6,7 @@ import os
 # =============================================================================
 SEARCH_URL_DDG = "https://html.duckduckgo.com/html/"
 SEARCH_URL_ALLDATASHEET = "https://www.alldatasheet.com/view.jsp"
-# SEARCH_URL_DATASHEETSPDF = "https://datasheetspdf.com/search"  # Домен недоступен
-SEARCH_URL_GOOGLE_SCHOLAR = "https://scholar.google.com/scholar"
-SEARCH_URL_BING = "https://www.bing.com/search"  # Новый источник для обхода блокировок
+SEARCH_URL_DATASHEETSPDF = "https://datasheetspdf.com/search"
 
 # Заголовки HTTP для маскировки под браузер
 HEADERS = {
@@ -130,8 +128,7 @@ TRUSTED_DOMAINS = {
         "alldatasheet.com", "pdf.datasheetcatalog.com",
         "datasheetarchive.com", "datasheet39.com", "datasheet4u.com",
         "ti.com", "analog.com", "st.com", "infineon.com", "nxp.com",
-        "microchip.com", "renesas.com", "onsemi.com", "vishay.com",
-        "farnell.com", "digikey.com", "mouser.com", "lcsc.com"
+        "microchip.com", "renesas.com", "onsemi.com", " Vishay.com"
     ],
     "application_note": [
         "ti.com", "analog.com", "st.com", "infineon.com", "nxp.com",
