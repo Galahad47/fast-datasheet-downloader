@@ -1,1 +1,13 @@
-Nothing should be ignored in this case, as the modified files (`main/config.py` and `main/searcher.py`) are both source code files without any build artifacts, dependencies, or temporary files present in the changes.
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+main/test_output/
+
+# Logs
+*.log
+```

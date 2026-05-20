@@ -35,26 +35,38 @@ class InfoSearcher:
         self.trusted_domains = config.TRUSTED_DOMAINS.get(self.info_type, [])
     
     # --------------------------------------------------------
-    # 1. Поиск через DuckDuckGo
+    # 1. Поиск через DuckDuckGo (через lite-версию)
     # --------------------------------------------------------
     def search_duckduckgo(self, query: str, max_results: int = 10) -> List[Tuple[str, str]]:
-        """Возвращает список (title, url) из HTML-выдачи DuckDuckGo."""
-        data = {"q": query, "kl": "ru-ru"}
+        """Возвращает список (title, url) из HTML-выдачи DuckDuckGo lite."""
+        # Используем lite-версию которая лучше работает без JS
+        search_url = "https://lite.duckduckgo.com/lite/"
+        data = {"q": query}
+        
         try:
-            r = request_with_retry(self.session, "POST", config.SEARCH_URL_DDG, data=data)
+            r = request_with_retry(self.session, "POST", search_url, data=data, timeout=20)
+            if r.status_code != 200 or not r.text.strip():
+                self.log(f"  DDG lite вернул статус {r.status_code}")
+                return []
         except Exception as e:
             self.log(f"  DDG ошибка: {e}")
             return []
 
         soup = BeautifulSoup(r.text, "html.parser")
         results = []
-        for a in soup.select("a.result__a"):
+        
+        # Для lite версии ищем все ссылки кроме внутренних
+        for a in soup.find_all("a", href=True):
             href = a.get("href", "")
+            # Пропускаем внутренние ссылки DuckDuckGo
+            if href.startswith("/") or "duckduckgo.com" in href:
+                continue
             title = a.get_text(" ", strip=True)
-            if href:
+            if href and title:
                 results.append((title, href))
             if len(results) >= max_results:
                 break
+        
         return results
 
     # --------------------------------------------------------
@@ -64,10 +76,17 @@ class InfoSearcher:
         """Ищет на alldatasheet.com, возвращает прямые ссылки на PDF."""
         if self.info_type != "datasheet":
             return []
+        
+        # Обновляем заголовки для alldatasheet
+        headers = {
+            **config.HEADERS,
+            "Referer": "https://www.alldatasheet.com/",
+        }
+        self.session.headers.update(headers)
             
         try:
             params = {"SearchWord": part_name}
-            r = request_with_retry(self.session, "GET", config.SEARCH_URL_ALLDATASHEET, params=params)
+            r = request_with_retry(self.session, "GET", config.SEARCH_URL_ALLDATASHEET, params=params, timeout=25)
         except Exception as e:
             self.log(f"  Alldatasheet ошибка: {e}")
             return []
@@ -125,7 +144,8 @@ class InfoSearcher:
         # Добавляем специализированные источники только для datasheet
         if self.info_type == "datasheet":
             sources.extend([
-                ('Alldatasheet', lambda: self.search_alldatasheet(query)),
+                # Alldatasheet временно отключен из-за 403 ошибок
+                # ('Alldatasheet', lambda: self.search_alldatasheet(query)),
                 # ('Datasheetspdf', lambda: self.search_datasheetspdf(query))  # Домен недоступен
             ])
 
@@ -243,7 +263,7 @@ class InfoSearcher:
     def find_links_on_page(self, page_url: str) -> List[str]:
         """Парсит страницу в поисках ссылок на файлы (включая iframe)."""
         try:
-            r = request_with_retry(self.session, "GET", page_url)
+            r = request_with_retry(self.session, "GET", page_url, timeout=15)
         except Exception:
             return []
 
@@ -332,7 +352,13 @@ class InfoSearcher:
                     continue
 
                 links = self.find_links_on_page(url)
-                for link_url in links:
+                for link_url in links[:10]:  # Ограничим 10 ссылками со страницы
+                    if not link_url:
+                        continue
+                    # Проверяем что это похоже на PDF
+                    if self.file_extension == ".pdf" and not (looks_like_pdf_url(link_url) or is_pdf_by_head(link_url, self.session)):
+                        continue
+                        
                     filename = sanitize_filename(query)
                     ext = self.file_extension if self.file_extension else ".html"
                     out_path = self.out_dir / f"{filename}{ext}"
