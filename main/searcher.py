@@ -35,18 +35,32 @@ class InfoSearcher:
         self.trusted_domains = config.TRUSTED_DOMAINS.get(self.info_type, [])
     
     # --------------------------------------------------------
-    # 1. Поиск через DuckDuckGo (через lite-версию)
+    # 1. Поиск через DuckDuckGo (через HTML-версию)
     # --------------------------------------------------------
     def search_duckduckgo(self, query: str, max_results: int = 10) -> List[Tuple[str, str]]:
-        """Возвращает список (title, url) из HTML-выдачи DuckDuckGo lite."""
-        # Используем lite-версию которая лучше работает без JS
-        search_url = "https://lite.duckduckgo.com/lite/"
+        """Возвращает список (title, url) из HTML-выдачи DuckDuckGo."""
+        # Используем HTML-версию с правильными заголовками
+        search_url = "https://html.duckduckgo.com/html/"
+        
+        # Обновляем заголовки для обхода блокировки
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": "https://html.duckduckgo.com",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
+        self.session.headers.update(headers)
+        
         data = {"q": query}
         
         try:
             r = request_with_retry(self.session, "POST", search_url, data=data, timeout=20)
             if r.status_code != 200 or not r.text.strip():
-                self.log(f"  DDG lite вернул статус {r.status_code}")
+                self.log(f"  DDG вернул статус {r.status_code}")
                 return []
         except Exception as e:
             self.log(f"  DDG ошибка: {e}")
@@ -55,17 +69,30 @@ class InfoSearcher:
         soup = BeautifulSoup(r.text, "html.parser")
         results = []
         
-        # Для lite версии ищем все ссылки кроме внутренних
-        for a in soup.find_all("a", href=True):
+        # Ищем результаты в стандартном формате DuckDuckGo
+        for a in soup.find_all("a", href=True, class_=lambda x: x and "result__url" in x):
             href = a.get("href", "")
-            # Пропускаем внутренние ссылки DuckDuckGo
-            if href.startswith("/") or "duckduckgo.com" in href:
-                continue
             title = a.get_text(" ", strip=True)
             if href and title:
+                # DuckDuckGo может возвращать относительные ссылки
+                if href.startswith("/"):
+                    continue
                 results.append((title, href))
             if len(results) >= max_results:
                 break
+        
+        # Если не нашли по классу, пробуем найти все внешние ссылки
+        if not results:
+            for a in soup.find_all("a", href=True):
+                href = a.get("href", "")
+                # Пропускаем внутренние ссылки DuckDuckGo
+                if href.startswith("/") or "duckduckgo.com" in href:
+                    continue
+                title = a.get_text(" ", strip=True)
+                if href and title:
+                    results.append((title, href))
+                if len(results) >= max_results:
+                    break
         
         return results
 

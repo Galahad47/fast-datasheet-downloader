@@ -1,13 +1,1 @@
-```
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Build artifacts
-main/test_output/
-
-# Logs
-*.log
-```
+Nothing should be ignored based on the provided file changes, as only a source code file (`main/searcher.py`) was modified and no build artifacts, dependencies, or temporary files were present in the changes.
